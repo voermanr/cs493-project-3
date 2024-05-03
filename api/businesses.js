@@ -4,13 +4,16 @@ const { validateAgainstSchema, extractValidFields } = require('../lib/validation
 const businesses = require('../data/businesses');
 const { reviews } = require('./reviews');
 const { photos } = require('./photos');
+const mongoConnection = require("../lib/mongoConnection");
 
 exports.router = router;
 exports.businesses = businesses;
 
+//
 /*
  * Schema describing required/optional fields of a business object.
  */
+
 const businessSchema = {
   ownerid: { required: true },
   name: { required: true },
@@ -28,12 +31,14 @@ const businessSchema = {
 /*
  * Route to return a list of businesses.
  */
-router.get('/', function (req, res) {
-
+router.get('/', async (req, res) => {
   /*
    * Compute page number based on optional query string parameter `page`.
    * Make sure page is within allowed bounds.
    */
+  const db = await mongoConnection.getDB();
+  db.collection('businesses').find();
+
   let page = parseInt(req.query.page) || 1;
   const numPerPage = 10;
   const lastPage = Math.ceil(businesses.length / numPerPage);
@@ -46,7 +51,14 @@ router.get('/', function (req, res) {
    */
   const start = (page - 1) * numPerPage;
   const end = start + numPerPage;
-  const pageBusinesses = businesses.slice(start, end);
+
+  try {
+    const pageBusinesses = getBusinessesPage(page)
+  } catch (err) {
+    res.status(500).json({
+      error: "Error fetching lodgings list. Try again later."
+    })
+  }
 
   /*
    * Generate HATEOAS links for surrounding pages.
@@ -81,14 +93,16 @@ router.get('/', function (req, res) {
 router.post('/', function (req, res, next) {
   if (validateAgainstSchema(req.body, businessSchema)) {
     const business = extractValidFields(req.body, businessSchema);
-    business.id = businesses.length;
-    businesses.push(business);
-    res.status(201).json({
-      id: business.id,
-      links: {
-        business: `/businesses/${business.id}`
-      }
-    });
+
+    const db = mongoConnection.getDB();
+
+    db.collection("businesses").insertOne(business).then(
+        res.status(201).json({
+          id: business.id,
+          links: {
+            business: `/businesses/${business.id}`
+          }
+        }))
   } else {
     res.status(400).json({
       error: "Request body is not a valid business object"
