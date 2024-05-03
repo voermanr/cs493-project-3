@@ -13,6 +13,7 @@ exports.router = router;
  */
 
 const businessSchema = {
+  _id: { required: false },
   ownerid: { required: true },
   name: { required: true },
   address: { required: true },
@@ -115,22 +116,24 @@ router.get('/', async (req, res) => {
 
 });
 
-/*
- * Route to create a new business.
- */
+
+// Route to create a new business
 router.post('/', function (req, res, next) {
   if (validateAgainstSchema(req.body, businessSchema)) {
     const business = extractValidFields(req.body, businessSchema);
 
     const db = mongoConnection.getDB();
 
-    db.collection("businesses").insertOne(business).then(
-        res.status(201).json({
-          id: business.id,
-          links: {
-            business: `/businesses/${business.id}`
-          }
-        }))
+    db.collection("businesses")
+        .insertOne(business)
+        .then( document => {
+          res.status(201).json({
+            id: document.insertedId,
+            links: {
+              business: `/businesses/${document.insertedId}`
+            }
+          })
+        })
   } else {
     res.status(400).json({
       error: "Request body is not a valid business object"
