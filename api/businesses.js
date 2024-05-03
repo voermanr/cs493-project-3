@@ -1,13 +1,11 @@
 const router = require('express').Router();
 const { validateAgainstSchema, extractValidFields } = require('../lib/validation');
 
-const businesses = require('../data/businesses');
 const { reviews } = require('./reviews');
 const { photos } = require('./photos');
 const mongoConnection = require("../lib/mongoConnection");
 
 exports.router = router;
-exports.businesses = businesses;
 
 //
 /*
@@ -27,6 +25,36 @@ const businessSchema = {
   website: { required: false },
   email: { required: false }
 };
+
+
+async function getBusinessesCount() {
+  const [ results ] = await mysqlPool.query(
+      "SELECT COUNT(*) AS count FROM businesses"
+  )
+  return results[0].count;
+}
+
+
+async function getBusinessesPage(page) {
+  const count = await getBusinessesCount();
+
+  const pageSize = 10;
+  const lastPage = Math.ceil(count / pageSize);
+  page = page > lastPage ? lastPage : page;
+  page = page < 1 ? 1 : page;
+  const offset = (page - 1) * pageSize;
+
+  const [ results ] = await mysqlPool.query("SELECT * FROM businesses ORDER BY id LIMIT ?, ?",
+      [offset, pageSize])
+
+  return {
+    businesses: results,
+    page: page,
+    totalPages: lastPage,
+    pageSize: pageSize,
+    count: count
+  }
+}
 
 /*
  * Route to return a list of businesses.
