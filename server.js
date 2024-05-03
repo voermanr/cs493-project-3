@@ -9,7 +9,7 @@ const app = express();
 const port = process.env.API_PORT;
 
 /*
- * Morgan is a popular logger.
+ * Morgan is a popular logger
  */
 app.use(morgan('dev'));
 
@@ -19,20 +19,12 @@ app.use(express.static('public'));
 async function initDB(){
     let client = null;
 
-    console.log("\nEstablishing First User:\n--------------------\n")
-    console.log("...ROOT_USERNAME:\t", process.env.MONGO_INITDB_ROOT_USERNAME);
-    console.log("...ROOT_PASSWORD:\t", process.env.MONGO_INITDB_ROOT_PASSWORD);
-    console.log("\n");
-
     try {
         const mongoURL = `mongodb://${process.env.MONGO_INITDB_ROOT_USERNAME}:${process.env.MONGO_INITDB_ROOT_PASSWORD}` +
             `@${process.env.MONGO_HOST}:${process.env.MONGO_PORT}/admin`
-        console.log("Trying to connect to MongoDB server...");
-        console.log("Assembling url:\t", mongoURL);
         client = await MongoClient.connect(mongoURL,
             { serverSelectionTimeoutMS: 30000 }
         );
-        console.log("Connected to MongoDB server from initDB!");
 
         const db = client.db();
         await db.command({
@@ -40,7 +32,6 @@ async function initDB(){
             pwd: "hunter2",
             roles: [{role: "readWrite", db: "howl"}]
         });
-        console.log("DB User 'dude' created successfully.");
     }
     catch (e) {
         console.error("Error creating first user.");
@@ -49,9 +40,7 @@ async function initDB(){
     finally {
         if (client)
             await client.close()
-        console.log("Connection closed");
     }
-    console.log("Resolving initDB...");
     return Promise.resolve()
 }
 
@@ -84,7 +73,7 @@ app.use('*', function (req, res, next) {
 app.use('*', function (err, req, res, next) {
   console.error("== Error:", err)
   res.status(500).send({
-      err: "Server error.  Please try again later."
+      error: "Server error.  Please try again later."
   })
 })
 
