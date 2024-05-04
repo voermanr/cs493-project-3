@@ -6,6 +6,7 @@ const { businesses } = require('./businesses');
 const { reviews } = require('./reviews');
 const { photos } = require('./photos');
 
+// TODO: update /users/:userid/businesses/ route to mongodb
 /*
  * Route to list all of a user's businesses.
  */
@@ -17,6 +18,7 @@ router.get('/:userid/businesses', function (req, res) {
   });
 });
 
+// TODO: update /users/:userid/reviews/ route to mongodb
 /*
  * Route to list all of a user's reviews.
  */
@@ -28,6 +30,7 @@ router.get('/:userid/reviews', function (req, res) {
   });
 });
 
+// TODO update /users/:userid/photos/ route to mongodb
 /*
  * Route to list all of a user's photos.
  */

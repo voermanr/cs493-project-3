@@ -16,7 +16,7 @@ const photoSchema = {
   caption: { required: false }
 };
 
-
+// TODO: update POST /photos/ route to mongodb
 /*
  * Route to create a new photo.
  */
@@ -40,6 +40,8 @@ router.post('/', function (req, res, next) {
   }
 });
 
+
+// TODO: update GET /photos/:photoid route to mongodb
 /*
  * Route to fetch info about a specific photo.
  */
@@ -52,6 +54,8 @@ router.get('/:photoID', function (req, res, next) {
   }
 });
 
+
+// TODO: update PUT /photos/:photoID route to mongodb
 /*
  * Route to update a photo.
  */
@@ -91,6 +95,8 @@ router.put('/:photoID', function (req, res, next) {
   }
 });
 
+
+// TODO: update DELETE /photos/:photoid route to mongodb
 /*
  * Route to delete a photo.
  */

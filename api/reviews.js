@@ -19,6 +19,7 @@ const reviewSchema = {
 };
 
 
+// TODO update POST /reviews/ route to mongodb
 /*
  * Route to create a new review.
  */
@@ -60,6 +61,8 @@ router.post('/', function (req, res, next) {
   }
 });
 
+
+// TODO update GET /reviews/:reviewid route to mongodb
 /*
  * Route to fetch info about a specific review.
  */
@@ -72,6 +75,8 @@ router.get('/:reviewID', function (req, res, next) {
   }
 });
 
+
+// TODO update PUT /reviews/:reviewid route to mongodb
 /*
  * Route to update a review.
  */
@@ -111,6 +116,8 @@ router.put('/:reviewID', function (req, res, next) {
   }
 });
 
+
+// TODO update DELETE /reviews/:reviewid route to mongodb
 /*
  * Route to delete a review.
  */
