@@ -1,10 +1,10 @@
 const router = require('express').Router();
 const { validateAgainstSchema, extractValidFields } = require('../lib/validation');
 
-const reviews = require('../data/reviews');
+const mongoConnection = require("../lib/mongoConnection");
 
 exports.router = router;
-exports.reviews = reviews;
+
 
 /*
  * Schema describing required/optional fields of a review object.
@@ -19,11 +19,10 @@ const reviewSchema = {
 };
 
 
-// TODO update POST /reviews/ route to mongodb
 /*
  * Route to create a new review.
  */
-router.post('/', function (req, res, next) {
+router.post('/', async (req, res, next) => {
   if (validateAgainstSchema(req.body, reviewSchema)) {
 
     const review = extractValidFields(req.body, reviewSchema);
@@ -31,23 +30,23 @@ router.post('/', function (req, res, next) {
     /*
      * Make sure the user is not trying to review the same business twice.
      */
-    const userReviewedThisBusinessAlready = reviews.some(
-      existingReview => existingReview
-        && existingReview.ownerid === review.ownerid
-        && existingReview.businessid === review.businessid
-    );
+    const existingReview = await mongoConnection.getDB().collection("reviews")
+        .findOne({
+          businessid: review.businessid,
+          userid: review.userid
+        })
 
-    if (userReviewedThisBusinessAlready) {
+    if (existingReview) {
       res.status(403).json({
         error: "User has already posted a review of this business"
       });
     } else {
-      review.id = reviews.length;
-      reviews.push(review);
+      const document = await mongoConnection.getDB().collection("reviews")
+          .insertOne(review);
       res.status(201).json({
-        id: review.id,
+        id: document.insertedId,
         links: {
-          review: `/reviews/${review.id}`,
+          review: `/reviews/${document.insertedId}`,
           business: `/businesses/${review.businessid}`
         }
       });
@@ -62,38 +61,70 @@ router.post('/', function (req, res, next) {
 });
 
 
-// TODO update GET /reviews/:reviewid route to mongodb
 /*
  * Route to fetch info about a specific review.
  */
-router.get('/:reviewID', function (req, res, next) {
-  const reviewID = parseInt(req.params.reviewID);
-  if (reviews[reviewID]) {
-    res.status(200).json(reviews[reviewID]);
+router.get('/:reviewid', async (req, res, next) => {
+  let review
+
+  try {
+    const reviewID = req.params.reviewid;
+    review = await mongoConnection.getDB().collection("reviews").findOne({
+      _id: reviewID
+    })
+  }
+  catch (e) {
+    res.status(500).json({
+      error: `Error getting review.\nError: \t${e}`
+    })
+  }
+
+  if (review) {
+    res.status(200).json(review);
   } else {
     next();
   }
 });
 
 
-// TODO update PUT /reviews/:reviewid route to mongodb
 /*
  * Route to update a review.
  */
-router.put('/:reviewID', function (req, res, next) {
-  const reviewID = parseInt(req.params.reviewID);
-  if (reviews[reviewID]) {
+router.put('/:reviewid', async (req, res, next) => {
+  const reviewID = req.params.reviewid;
+  const collection = await mongoConnection.getDB().collection("reviews");
+
+  let review
+
+  try {
+    review = await collection.findOne({ _id: reviewID })
+  }
+  catch (e) {
+    console.error(e)
+    next(e);
+  }
+
+  if (review) {
 
     if (validateAgainstSchema(req.body, reviewSchema)) {
       /*
        * Make sure the updated review has the same businessid and userid as
        * the existing review.
        */
-      let updatedReview = extractValidFields(req.body, reviewSchema);
-      let existingReview = reviews[reviewID];
+      const updatedReview = extractValidFields(req.body, reviewSchema);
+      let existingReview = review;
+
       if (updatedReview.businessid === existingReview.businessid && updatedReview.userid === existingReview.userid) {
-        reviews[reviewID] = updatedReview;
-        reviews[reviewID].id = reviewID;
+        try {
+          await collection.updateOne(
+              { _id: reviewID },
+              { $set: updatedReview}
+          )
+        }
+        catch (e) {
+          next(e)
+        }
+
         res.status(200).json({
           links: {
             review: `/reviews/${reviewID}`,
@@ -110,23 +141,33 @@ router.put('/:reviewID', function (req, res, next) {
         error: "Request body is not a valid review object"
       });
     }
-
   } else {
     next();
   }
 });
 
 
-// TODO update DELETE /reviews/:reviewid route to mongodb
 /*
  * Route to delete a review.
  */
-router.delete('/:reviewID', function (req, res, next) {
-  const reviewID = parseInt(req.params.reviewID);
-  if (reviews[reviewID]) {
-    reviews[reviewID] = null;
-    res.status(204).end();
-  } else {
-    next();
+router.delete('/:reviewid', async (req, res, next) => {
+  const reviewID = req.params.reviewid;
+
+  try {
+    const result = await mongoConnection.getDB().collection("reviews")
+        .deleteOne({ _id: reviewID })
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: `Review with _id: ${reviewID} not found!`});
+    }
+    res.status(204).end()
+  }
+  catch (e) {
+    next(e);
   }
 });
+
+
+
+
+
+
