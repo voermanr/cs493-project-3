@@ -139,6 +139,7 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+
 /*
  * Route to fetch info about a specific business.
  */
@@ -162,6 +163,7 @@ router.get('/:businessid', async function (req, res, next) {
     next();
   }
 });
+
 
 /*
  * Route to replace data for a business.
@@ -198,6 +200,7 @@ router.put('/:businessid', async function (req, res, next) {
     next();
   }
 });
+
 
 /*
  * Route to delete a business.
