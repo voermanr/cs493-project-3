@@ -29,35 +29,22 @@ perform_test() {
     fi
 }
 
-post_business() {
-    local id="$1"
-    local name="$2"
-    local city="$3"
-    local state="$4"
-    local zip="$5"
-    local street_address="$6"
-    local phone_number="$7"
-    local category="$8"
-    local subcategory="$9"
-
-    # Construct the JSON data
-    local data='{
-        "_id": "'"$id"'",
-        "name": "'"$name"'",
-        "city": "'"$city"'",
-        "state": "'"$state"'",
-        "zip": "'"$zip"'",
-        "street_address": "'"$street_address"'",
-        "phone_number": "'"$phone_number"'",
-        "category": "'"$category"'",
-        "subcategory": "'"$subcategory"'"
-    }'
-
-    # POST the new business
-    local output=$(curl -X POST -s \
-        -H 'Content-Type: application/json' \
-        -d "$data" \
-        "$SURL/businesses/")
+post_random_test_business() {
+    curl -s -X POST $SERVER_URL/businesses \
+    -H "Content-Type: application/json" \
+    -d '{
+        "ownerid": "123",
+        "name": "Test Business",
+        "address": "123 Main St",
+        "city": "Test City",
+        "state": "TS",
+        "zip": "12345",
+        "phone": "555-1234",
+        "category": "Test Category",
+        "subcategory": "Test Subcategory",
+        "website": "http://testbusiness.com",
+        "email": "test@testbusiness.com"
+    }' >> /dev/null
 }
 
 
@@ -67,6 +54,7 @@ test_post_business() {
     local expected_response='"id":"0","links":{"business":"/businesses/0"}'
     local method="POST"
     local data='{"_id":"0", "ownerid":"0", "name":"Bobs Burgers", "city":"Bobtown", "state":"PN", "zip":"12700", "address":"420", "phone":"867-5309", "category":"burgerstand", "subcategory":"with_fries"}'
+
     perform_test "$test_name" "$expected_response" "$method" "$data" "/businesses/"
 }
 
@@ -82,23 +70,42 @@ test_fail_post_business() {
 # GET a business
 test_get_a_business() {
   local test_name="GET a business"
-  local expected_response=''
+  local expected_response='"_id":"0","ownerid":"0","name":"Bobs Burgers","address":"420","city":"Bobtown","state":"PN","zip":"12700","phone":"867-5309","category":"burgerstand","subcategory":"with_fries"'
   local method="GET"
   local data=''
 
-  post_business "1" "bobtown"
   perform_test "$test_name" "$expected_response" "$method" "$data" "/businesses/0"
 }
 
-# Add more test functions as needed...
+test_get_businesses() {
+    local test_name="GET businesses"
+    local expected_response=''
+    local method="GET"
+    local data=''
+
+    for (( i = 0; i < 19; i++ )); do
+      post_random_test_business
+    done
+
+    perform_test "$test_name" "$expected_response" "$method" "$data" "/businesses?page=2"
+}
+
+# Test: POST a new business
+test_put_an_updated_business() {
+    local test_name="PUT an updated business"
+    local expected_response='"links":{"business":"/businesses/0"}'
+    local method="PUT"
+    local data='{"_id":"0", "ownerid":"0", "name":"Jimmy Pestoffed", "city":"Bobtown", "state":"PN", "zip":"12700", "address":"420", "phone":"867-5309", "category":"burgerstand", "subcategory":"with_fries"}'
+
+    perform_test "$test_name" "$expected_response" "$method" "$data" "/businesses/0"
+}
 
 # Run tests
 test_post_business
 test_fail_post_business
+test_get_businesses
 test_get_a_business
-# Call other test functions here...
-
-
+test_put_an_updated_business
 
 # Add summary
 printf "\n=====================================================\n"

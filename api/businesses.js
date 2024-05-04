@@ -4,6 +4,7 @@ const { validateAgainstSchema, extractValidFields } = require('../lib/validation
 const { reviews } = require('./reviews');
 const { photos } = require('./photos');
 const mongoConnection = require("../lib/mongoConnection");
+const {ObjectId} = require("mongodb");
 
 exports.router = router;
 
@@ -29,10 +30,7 @@ const businessSchema = {
 
 
 async function getBusinessesCount() {
-  const [ results ] = await mysqlPool.query(
-      "SELECT COUNT(*) AS count FROM businesses"
-  )
-  return results[0].count;
+  return await mongoConnection.getDB().collection('businesses').countDocuments();
 }
 
 
@@ -45,8 +43,11 @@ async function getBusinessesPage(page) {
   page = page < 1 ? 1 : page;
   const offset = (page - 1) * pageSize;
 
-  const [ results ] = await mysqlPool.query("SELECT * FROM businesses ORDER BY id LIMIT ?, ?",
-      [offset, pageSize])
+  const results = await mongoConnection.getDB().collection('businesses').aggregate([
+      { $sort: { _id: 1} },
+      { $skip: (page - 1) * pageSize },
+      { $limit: pageSize}])
+    .toArray();
 
   return {
     businesses: results,
@@ -65,24 +66,18 @@ router.get('/', async (req, res) => {
    * Compute page number based on optional query string parameter `page`.
    * Make sure page is within allowed bounds.
    */
-  const db = await mongoConnection.getDB();
-  db.collection('businesses').find();
 
   let page = parseInt(req.query.page) || 1;
   const numPerPage = 10;
-  const lastPage = Math.ceil(businesses.length / numPerPage);
+  const totalCount = await mongoConnection.getDB().collection("businesses").countDocuments();
+  const lastPage = Math.ceil(totalCount / numPerPage);
   page = page > lastPage ? lastPage : page;
   page = page < 1 ? 1 : page;
 
-  /*
-   * Calculate starting and ending indices of businesses on requested page and
-   * slice out the corresponsing sub-array of busibesses.
-   */
-  const start = (page - 1) * numPerPage;
-  const end = start + numPerPage;
 
+  let pageBusinesses;
   try {
-    const pageBusinesses = getBusinessesPage(page)
+    pageBusinesses = await getBusinessesPage(page)
   } catch (err) {
     res.status(500).json({
       error: "Error fetching lodgings list. Try again later."
@@ -106,11 +101,11 @@ router.get('/', async (req, res) => {
    * Construct and send response.
    */
   res.status(200).json({
-    businesses: pageBusinesses,
+    collectionPage: pageBusinesses,
     pageNumber: page,
     totalPages: lastPage,
     pageSize: numPerPage,
-    totalCount: businesses.length,
+    totalCount: totalCount,
     links: links
   });
 
@@ -144,19 +139,22 @@ router.post('/', function (req, res, next) {
 /*
  * Route to fetch info about a specific business.
  */
-router.get('/:businessid', function (req, res, next) {
-  const businessid = parseInt(req.params.businessid);
-  if (businesses[businessid]) {
-    /*
-     * Find all reviews and photos for the specified business and create a
-     * new object containing all of the business data, including reviews and
-     * photos.
-     */
-    const business = {
-      reviews: reviews.filter(review => review && review.businessid === businessid),
-      photos: photos.filter(photo => photo && photo.businessid === businessid)
-    };
-    Object.assign(business, businesses[businessid]);
+router.get('/:businessid', async function (req, res, next) {
+
+  let business;
+  try {
+    let objectId = req.params.businessid;
+    console.log("objectId", objectId);
+    business = await mongoConnection.getDB().collection("businesses")
+       .findOne({_id: objectId});
+  }
+  catch (e) {
+    res.status(500).json({
+      error: `Error getting business.\nError: \t${e}`
+    })
+  }
+
+  if (business) {
     res.status(200).json(business);
   } else {
     next();
@@ -166,16 +164,26 @@ router.get('/:businessid', function (req, res, next) {
 /*
  * Route to replace data for a business.
  */
-router.put('/:businessid', function (req, res, next) {
-  const businessid = parseInt(req.params.businessid);
-  if (businesses[businessid]) {
+router.put('/:businessid', async function (req, res, next) {
+
+  const businessId = req.params.businessid;
+  const collection = await mongoConnection.getDB().collection("businesses");
+
+  if (await collection.findOne({_id: businessId})) {
 
     if (validateAgainstSchema(req.body, businessSchema)) {
-      businesses[businessid] = extractValidFields(req.body, businessSchema);
-      businesses[businessid].id = businessid;
+      try {
+        await collection.updateOne(
+            {_id: businessId},
+            { $set: extractValidFields(req.body, businessSchema) },
+            )
+      } catch (err) {
+        res.status(500).send(err)
+      }
+
       res.status(200).json({
         links: {
-          business: `/businesses/${businessid}`
+          business: `/businesses/${businessId}`
         }
       });
     } else {
