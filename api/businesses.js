@@ -65,7 +65,7 @@ router.get('/', async (req, res) => {
 
   let page = parseInt(req.query.page) || 1;
   const numPerPage = 10;
-  const totalCount = await mongoConnection.getDB().collection("businesses").countDocuments();
+  const totalCount = await getBusinessesCount();
   const lastPage = Math.ceil(totalCount / numPerPage);
   page = page > lastPage ? lastPage : page;
   page = page < 1 ? 1 : page;
@@ -132,10 +132,9 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: "Problem creating business."})
     }
   } else {
-    res.status(400).json({
+    return res.status(400).json({
       error: "Request body is not a valid business object"
     });
-    next();
   }
 });
 
@@ -147,7 +146,7 @@ router.get('/:businessid', async function (req, res, next) {
 
   let business;
   try {
-    let businessId = req.params.businessid;
+    const businessId = req.params.businessid;
     business = await mongoConnection.getDB().collection("businesses")
        .findOne({_id: businessId});
   }
