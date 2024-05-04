@@ -1,18 +1,13 @@
 const router = require('express').Router();
 const { validateAgainstSchema, extractValidFields } = require('../lib/validation');
 
-const { reviews } = require('./reviews');
-const { photos } = require('./photos');
 const mongoConnection = require("../lib/mongoConnection");
-const {ObjectId} = require("mongodb");
 
 exports.router = router;
 
-//
 /*
  * Schema describing required/optional fields of a business object.
  */
-
 const businessSchema = {
   _id: { required: false },
   ownerid: { required: true },
@@ -45,7 +40,7 @@ async function getBusinessesPage(page) {
 
   const results = await mongoConnection.getDB().collection('businesses').aggregate([
       { $sort: { _id: 1} },
-      { $skip: (page - 1) * pageSize },
+      { $skip: offset},
       { $limit: pageSize}])
     .toArray();
 
@@ -57,6 +52,7 @@ async function getBusinessesPage(page) {
     count: count
   }
 }
+
 
 /*
  * Route to return a list of businesses.
@@ -112,27 +108,34 @@ router.get('/', async (req, res) => {
 });
 
 
-// Route to create a new business
-router.post('/', function (req, res, next) {
+/*
+* Route to create a new business
+ */
+router.post('/', async (req, res, next) => {
   if (validateAgainstSchema(req.body, businessSchema)) {
     const business = extractValidFields(req.body, businessSchema);
 
     const db = mongoConnection.getDB();
 
-    db.collection("businesses")
-        .insertOne(business)
-        .then( document => {
-          res.status(201).json({
-            id: document.insertedId,
-            links: {
-              business: `/businesses/${document.insertedId}`
-            }
-          })
-        })
+    try {
+      const document = await db.collection("businesses")
+          .insertOne(business)
+      res.status(201).json({
+        id: document.insertedId,
+        links: {
+          business: `/businesses/${document.insertedId}`
+        }
+      })
+    }
+    catch (e) {
+      console.error(e)
+      return res.status(400).json({ error: "Problem creating business."})
+    }
   } else {
     res.status(400).json({
       error: "Request body is not a valid business object"
     });
+    next();
   }
 });
 
@@ -143,10 +146,9 @@ router.get('/:businessid', async function (req, res, next) {
 
   let business;
   try {
-    let objectId = req.params.businessid;
-    console.log("objectId", objectId);
+    let businessId = req.params.businessid;
     business = await mongoConnection.getDB().collection("businesses")
-       .findOne({_id: objectId});
+       .findOne({_id: businessId});
   }
   catch (e) {
     res.status(500).json({
@@ -200,12 +202,20 @@ router.put('/:businessid', async function (req, res, next) {
 /*
  * Route to delete a business.
  */
-router.delete('/:businessid', function (req, res, next) {
-  const businessid = parseInt(req.params.businessid);
-  if (businesses[businessid]) {
-    businesses[businessid] = null;
+router.delete('/:businessid', async (req, res, next) => {
+  const businessId = req.params.businessid;
+
+  try {
+    const result = await mongoConnection.getDB().collection("businesses").deleteOne({_id: businessId})
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: `Business with _id: ${businessId} not found!`});
+    }
+
     res.status(204).end();
-  } else {
-    next();
+  }
+  catch (e) {
+    console.error(e);
+    next(e);
   }
 });

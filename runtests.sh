@@ -9,7 +9,9 @@ NUM_PASSED=0
 perform_test() {
     local test_name="$1"
     local expected_response="$2"
-    local response=$(curl -s -X "$3" -H 'Content-Type: application/json' -d "$4" "$SERVER_URL$5")
+    local response
+
+    response=$(curl -s -X "$3" -H 'Content-Type: application/json' -d "$4" "$SERVER_URL$5")
 
     NUM_TESTS=$((NUM_TESTS+1))
 
@@ -100,12 +102,22 @@ test_put_an_updated_business() {
     perform_test "$test_name" "$expected_response" "$method" "$data" "/businesses/0"
 }
 
+test_delete_a_business() {
+  local test_name="DELETE a business"
+  local expected_response=''
+  local method="DELETE"
+  local data=''
+
+  perform_test "$test_name" "$expected_response" "$method" "$data" "/businesses/0"
+}
+
 # Run tests
 test_post_business
 test_fail_post_business
 test_get_businesses
 test_get_a_business
 test_put_an_updated_business
+test_delete_a_business
 
 # Add summary
 printf "\n=====================================================\n"
