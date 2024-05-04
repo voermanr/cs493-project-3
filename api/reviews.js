@@ -10,6 +10,7 @@ exports.reviews = reviews;
  * Schema describing required/optional fields of a review object.
  */
 const reviewSchema = {
+  _id: { required: false },
   userid: { required: true },
   businessid: { required: true },
   dollars: { required: true },
@@ -55,6 +56,7 @@ router.post('/', function (req, res, next) {
     res.status(400).json({
       error: "Request body is not a valid review object"
     });
+    next();
   }
 });
 

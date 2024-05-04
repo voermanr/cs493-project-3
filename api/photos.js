@@ -10,6 +10,7 @@ exports.photos = photos;
  * Schema describing required/optional fields of a photo object.
  */
 const photoSchema = {
+  _id: { required: false },
   userid: { required: true },
   businessid: { required: true },
   caption: { required: false }
@@ -35,6 +36,7 @@ router.post('/', function (req, res, next) {
     res.status(400).json({
       error: "Request body is not a valid photo object"
     });
+    next();
   }
 });
 
