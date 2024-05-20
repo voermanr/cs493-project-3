@@ -19,10 +19,13 @@
   },
   "homepage": "https://github.com/osu-cs493-sp22/template-assignment-2#readme",
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "express": "^4.17.3",
+    "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.5.0",
     "mongosh": "^2.2.5",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "newman": "^6.1.2"
   },
   "devDependencies": {
     "nodemon": "^2.0.15"
