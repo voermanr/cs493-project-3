@@ -2,6 +2,9 @@ const router = require('express').Router();
 const { validateAgainstSchema, extractValidFields } = require('../lib/validation');
 
 const mongoConnection = require("../lib/mongoConnection");
+const {isAuthenticated} = require("../lib/authenicator");
+const {isOwner} = require("../lib/authorizer");
+const ObjectId = require("mongodb").ObjectId;
 
 exports.router = router;
 
@@ -9,8 +12,6 @@ exports.router = router;
  * Schema describing required/optional fields of a business object.
  */
 const businessSchema = {
-  _id: { required: false },
-  ownerid: { required: true },
   name: { required: true },
   address: { required: true },
   city: { required: true },
@@ -23,12 +24,9 @@ const businessSchema = {
   email: { required: false }
 };
 
-
 async function getBusinessesCount() {
   return await mongoConnection.getDB().collection('businesses').countDocuments();
 }
-
-
 async function getBusinessesPage(page) {
   const count = await getBusinessesCount();
 
@@ -53,10 +51,7 @@ async function getBusinessesPage(page) {
   }
 }
 
-
-/*
- * Route to return a list of businesses.
- */
+/* Route to return a list of businesses. */
 router.get('/', async (req, res) => {
   /*
    * Compute page number based on optional query string parameter `page`.
@@ -93,9 +88,7 @@ router.get('/', async (req, res) => {
     links.firstPage = '/businesses?page=1';
   }
 
-  /*
-   * Construct and send response.
-   */
+  /* TODO: cover route */
   res.status(200).json({
     collectionPage: pageBusinesses,
     pageNumber: page,
@@ -107,89 +100,87 @@ router.get('/', async (req, res) => {
 
 });
 
+/* Route to fetch info about a specific business. */
+router.get('/:businessid', async function (req, res, next) {
+  let business;
+  try {
+    business = await mongoConnection.getDB().collection("businesses")
+        .find({
+          _id: new ObjectId(req.params.businessid)
+        }).toArray();
 
-/*
-* Route to create a new business
- */
+    if (business) {
+      /* DONE: route covered */
+      res.status(200).json(business);
+    } else {
+      next();
+    }
+  }
+  catch (e) { next(e); }
+});
+
+/* ROUTES BELOW REQUIRE AUTHENICATION */
+router.use(isAuthenticated);
+
+/* Route to create a new business */
 router.post('/', async (req, res, next) => {
   if (validateAgainstSchema(req.body, businessSchema)) {
-    const business = extractValidFields(req.body, businessSchema);
+      const business = {"ownerid": req.username,
+        ...extractValidFields(req.body, businessSchema),
+      };
 
-    const db = mongoConnection.getDB();
+      const db = mongoConnection.getDB();
 
-    try {
-      const document = await db.collection("businesses")
-          .insertOne(business)
-      res.status(201).json({
-        id: document.insertedId,
-        links: {
-          business: `/businesses/${document.insertedId}`
-        }
-      })
-    }
-    catch (e) {
-      console.error(e)
-      return res.status(400).json({ error: "Problem creating business."})
-    }
+      try {
+        const document = await db.collection("businesses")
+            .insertOne(business);
+        /* DONE: route covered */
+        res.status(201).json({
+          _id: document.insertedId,
+          links: {
+            business: `/businesses/${document.insertedId}`
+          }
+        })
+      }
+      catch (e) {
+        next(e);
+      }
   } else {
+    /* DONE: route covered */
     return res.status(400).json({
       error: "Request body is not a valid business object"
     });
   }
 });
 
+/* ROUTES BELOW REQUIRE OWNER OR ADMIN */
+router.use(isOwner);
 
-/*
- * Route to fetch info about a specific business.
- */
-router.get('/:businessid', async function (req, res, next) {
-
-  let business;
-  try {
-    const businessId = req.params.businessid;
-    business = await mongoConnection.getDB().collection("businesses")
-       .findOne({_id: businessId});
-  }
-  catch (e) {
-    res.status(500).json({
-      error: `Error getting business.\nError: \t${e}`
-    })
-  }
-
-  if (business) {
-    res.status(200).json(business);
-  } else {
-    next();
-  }
-});
-
-
-/*
- * Route to replace data for a business.
- */
-router.put('/:businessid', async function (req, res, next) {
-
+/* Route to replace data for a business. */
+router.put('/:businessid', async (req, res, next) => {
   const businessId = req.params.businessid;
   const collection = await mongoConnection.getDB().collection("businesses");
 
-  if (await collection.findOne({_id: businessId})) {
+  //console.log("\t>> businessId: ", businessId);
 
+  if (await collection.findOne({_id: new ObjectId(businessId)})) {
     if (validateAgainstSchema(req.body, businessSchema)) {
       try {
         await collection.updateOne(
-            {_id: businessId},
+            {_id: new ObjectId(businessId)},
             { $set: extractValidFields(req.body, businessSchema) },
             )
-      } catch (err) {
-        res.status(500).send(err)
-      }
+      } catch (err) { next(err); }
 
+      /* DONE: route covered */
       res.status(200).json({
+        _id: businessId,
         links: {
           business: `/businesses/${businessId}`
         }
       });
     } else {
+      /* TODO: cover route */
       res.status(400).json({
         error: "Request body is not a valid business object"
       });
@@ -200,24 +191,22 @@ router.put('/:businessid', async function (req, res, next) {
   }
 });
 
-
-/*
- * Route to delete a business.
- */
+/* Route to delete a business. */
 router.delete('/:businessid', async (req, res, next) => {
   const businessId = req.params.businessid;
 
   try {
-    const result = await mongoConnection.getDB().collection("businesses").deleteOne({_id: businessId})
+    const result = await mongoConnection.getDB().collection("businesses").deleteOne({_id: new ObjectId(businessId)})
 
     if (result.deletedCount === 0) {
+      /* TODO: cover route */
       return res.status(404).json({ error: `Business with _id: ${businessId} not found!`});
     }
 
-    res.status(204).end();
+    /* DONE: route covered */
+    res.status(200).end();
   }
   catch (e) {
-    console.error(e);
     next(e);
   }
 });
